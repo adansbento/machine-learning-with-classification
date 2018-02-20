@@ -15,3 +15,4 @@ def load_access():
         making.append( int(bought))
 
     return datas,making
+
