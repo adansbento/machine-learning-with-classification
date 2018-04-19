@@ -19,55 +19,79 @@ def load_data(pathFile,fields,whatVar):
 
     return X,Y
 
-def calc_hit_tax(X,Y):
-
+def create_hit_base(Y):
     hit_base = max(Counter(Y).itervalues())
     hit_of_tax_base =  100.0 * hit_base / len(Y)
-    print( "Taxa de acertos base: %f" % hit_of_tax_base )
+    print( "Taxa de acertos base (chuta sempre o elemento de maior frequencia): %f" % hit_of_tax_base )
 
-    # perc/100
-    fit_size_percent = 0.9
+
+def calc_hit_tax(X,Y):
+
+    # 80 % treino 10% teste 10% validacao
+    fit_size_percent = 0.8
+    test_size_percent = 0.1
+    validation_size_percent = 0.1
+
     fit_size = fit_size_percent * len(Y)
-    fit_data = X[:int(fit_size)]
-    fit_making = Y[:int(fit_size)]
+    fit_data = X[0:int(fit_size)]
+    fit_making = Y[0:int(fit_size)]
+    fit_end = len(fit_data)
 
-    test_size = len(Y) - fit_size
-    test_data = X[- int(test_size):]
-    test_making = Y[- int(test_size):]
+    test_size = test_size_percent * len(Y)
+    test_end = fit_end + test_size
+    test_data = X[int(fit_end):int(test_end)]
+    test_making = Y[int(fit_end):int(test_end)]
 
-    return fit_data,fit_making,test_data,test_making
+    validation_size = validation_size_percent * len(Y)
+    validation_end =  test_end + validation_size
+    validation_data = X[ int(test_end):int(validation_end)]
+    validation_making = Y[int(test_end):int(validation_end)]
+    
+    return fit_data,fit_making,test_data,test_making,validation_data,validation_making
 
+def fit_and_predict(model,data,making,fit_data,fit_making,name):
 
-def fit_and_predict(model,fit_data,fit_making,test_data,test_making,name):
-
+    #treinar
     model.fit(fit_data,fit_making)
-    result = model.predict(test_data)
-    hits = test_making == result
+
+    #prever
+    result = model.predict(data)
+    hits = making == result
 
     #Acertos
-    elements_amount = len(test_data)
+    elements_amount = len(data)
     hits_amount = sum(hits)
     hits_percent = 100.0*hits_amount/elements_amount
 
-    print 'Acertos/Total:{0} /{1}  {2}'.format(hits_amount, elements_amount,name)
+    print 'Acertos/Total {0}: {1}/{2}'.format(name,hits_amount, elements_amount)
     print 'Acertos em %:',hits_percent
 
+    return hits_amount
 
-
-def run_teste():
+def run_test():
     
     fields = ['home','search','login']
     pathFile = 'search.csv'
     varWhatFind = 'bought'
 
     X,Y = load_data(pathFile,fields,varWhatFind)
-    fit_data,fit_making,test_data,test_making = calc_hit_tax(X,Y)
+    fit_data,fit_making,test_data,test_making,validation_data,validation_making = calc_hit_tax(X,Y)
 
-    model1 = AdaBoostClassifier()
-    fit_and_predict(model1,fit_data,fit_making,test_data,test_making,"AdaBoostClassifier")
+    # cria um algortimo que chuta sempre o elemeto de maior frequencia
+    create_hit_base(validation_making)
 
-    model1 = MultinomialNB()
-    fit_and_predict(model1,fit_data,fit_making,test_data,test_making,"MultinomialNB")
+    adaBoostModel = AdaBoostClassifier()
+    hitAdaBoost = fit_and_predict(adaBoostModel,test_data, test_making,fit_data,fit_making," AdaBoostClassifier ")
 
+    multinomialModel = MultinomialNB()
+    hitMultinomial  = fit_and_predict(multinomialModel,test_data, test_making,fit_data,fit_making," MultinomialNB ")
 
-run_teste()
+    #Seleciona o algoritmo com melhor resultado
+    betterModel = multinomialModel
+    
+    if hitAdaBoost > hitMultinomial:
+        betterModel = adaBoostModel
+        
+    fit_and_predict(betterModel,validation_data, validation_making,fit_data,fit_making," O melhor entre todos com dados reais")
+    
+run_test()
